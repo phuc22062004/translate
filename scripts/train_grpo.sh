@@ -10,7 +10,6 @@ torchrun --nproc_per_node=2 -m viamr.training.grpo \
     --dataset1_path "data/train.jsonl" \
     --output_dir "outputs/Qwen-1.7B-GRPO-VI2EN" \
     --model_name "outputs/Qwen-1.7B-SFT-VI2EN" \
-    --deepspeed_path "config/ds_zero2.json" \
     --learning_rate 1e-6 \
     --adam_beta1 0.9 \
     --adam_beta2 0.999 \

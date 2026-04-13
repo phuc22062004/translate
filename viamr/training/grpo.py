@@ -54,8 +54,9 @@ def main(args: argparse.Namespace) -> None:
         use_vllm=False,
         vllm_gpu_memory_utilization=0.6,
         report_to=report_to,
-        deepspeed=args.deepspeed_path,
     )
+    if args.deepspeed_path:
+        grpo_config_kwargs["deepspeed"] = args.deepspeed_path
     training_args = GRPOConfig(**_filter_kwargs(GRPOConfig, grpo_config_kwargs))
 
     trainer_kwargs = dict(

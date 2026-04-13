@@ -43,10 +43,11 @@ def main(args: argparse.Namespace) -> None:
         save_total_limit=2,
         report_to="none",
         completion_only_loss=True,
-        deepspeed=args.deepspeed_path,
         max_length=args.max_input_length,
         max_seq_length=args.max_input_length,
     )
+    if args.deepspeed_path:
+        sft_config_kwargs["deepspeed"] = args.deepspeed_path
     training_args = SFTConfig(**_filter_kwargs(SFTConfig, sft_config_kwargs))
 
     trainer_kwargs = dict(
