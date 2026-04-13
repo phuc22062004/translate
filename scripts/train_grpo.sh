@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 echo "Running GRPO training (vi -> en)..."
 export CUDA_VISIBLE_DEVICES=0,1
 
-torchrun --nproc_per_node=2 -m viamr.training.grpo \
+python -m viamr.training.grpo \
     --dataset1_path "data/train.jsonl" \
     --output_dir "outputs/Qwen-1.7B-GRPO-VI2EN" \
     --model_name "outputs/Qwen-1.7B-SFT-VI2EN" \

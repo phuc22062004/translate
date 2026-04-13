@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 echo "Running SFT training (vi -> en)..."
 export CUDA_VISIBLE_DEVICES=0,1
 
-torchrun --nproc_per_node=2 -m viamr.training.sft \
+python -m viamr.training.sft \
     --dataset1_path "data/train.jsonl" \
     --output_dir "outputs/Qwen-1.7B-SFT-VI2EN" \
     --model_name "Qwen/Qwen3-1.7B" \
