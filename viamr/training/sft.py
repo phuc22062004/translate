@@ -1,5 +1,6 @@
 """Supervised fine-tuning entrypoint for Vietnamese→English translation."""
 import argparse
+import inspect
 import os
 
 import torch
@@ -9,6 +10,14 @@ from ..dataset import get_data
 from ._common import add_common_args, build_lora_config, build_model_and_tokenizer
 
 
+def _filter_kwargs(cls, kwargs: dict) -> dict:
+    """Keep only kwargs that the target class's __init__ actually accepts."""
+    params = inspect.signature(cls.__init__).parameters
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return kwargs
+    return {k: v for k, v in kwargs.items() if k in params}
+
+
 def main(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -16,7 +25,7 @@ def main(args: argparse.Namespace) -> None:
     model, tokenizer = build_model_and_tokenizer(args.model_name, device)
     peft_config = build_lora_config(args)
 
-    training_args = SFTConfig(
+    sft_config_kwargs = dict(
         output_dir=args.output_dir,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -29,20 +38,30 @@ def main(args: argparse.Namespace) -> None:
         weight_decay=args.weight_decay,
         warmup_steps=args.warmup_steps,
         lr_scheduler_type=args.lr_scheduler_type,
-        bf16=True,
-        logging_dir=os.path.join(args.output_dir, "logs"),
+        bf16=torch.cuda.is_bf16_supported(),
+        fp16=not torch.cuda.is_bf16_supported(),
         save_total_limit=2,
         report_to="none",
+        completion_only_loss=True,
+        deepspeed=args.deepspeed_path,
         max_length=args.max_input_length,
+        max_seq_length=args.max_input_length,
     )
+    training_args = SFTConfig(**_filter_kwargs(SFTConfig, sft_config_kwargs))
 
-    trainer = SFTTrainer(
+    trainer_kwargs = dict(
         model=model,
-        processing_class=tokenizer,
         train_dataset=train_dataset,
         args=training_args,
         peft_config=peft_config,
     )
+    sft_params = inspect.signature(SFTTrainer.__init__).parameters
+    if "processing_class" in sft_params:
+        trainer_kwargs["processing_class"] = tokenizer
+    elif "tokenizer" in sft_params:
+        trainer_kwargs["tokenizer"] = tokenizer
+
+    trainer = SFTTrainer(**trainer_kwargs)
 
     trainer.train()
     trainer.save_model(args.output_dir)
