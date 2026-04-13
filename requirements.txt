@@ -1,10 +1,9 @@
-penman
 pandas
-underthesea
-smatch
+sacrebleu
 mpi4py
 trl
 vllm
 peft
 deepspeed
 transformers
+wandb

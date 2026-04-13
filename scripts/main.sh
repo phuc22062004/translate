@@ -1,14 +1,10 @@
-export PYTHONPATH="//home/fit02/dien-workspace/viamr/src:$PYTHONPATH"
-echo "Running infer script..."
+#!/bin/bash
+set -e
 
-# python3 -m src.main \
-#     --input_file "/home/fit02/dien-workspace/viamr/src/data/test.txt" \
-#     --output_file "/home/fit02/dien-workspace/viamr/results.txt" \
-#     --model_name "/home/fit02/dien-workspace/viamr/outputs/Qwen-1.7B-SFT" \
-#     --my_test 1
+cd "$(dirname "$0")/.."
 
-python3 -m src.main \
-    --input_file "/home/fit02/dien-workspace/viamr/src/data/public_test.txt" \
-    --output_file "/home/fit02/dien-workspace/viamr/results.txt" \
-    --model_name "/home/fit02/dien-workspace/viamr/outputs/Qwen-1.7B-SFT-2" \
-    --my_test 0 
+echo "=== Full vi->en pipeline: SFT -> inference -> BLEU ==="
+
+bash scripts/train_sft.sh
+bash scripts/infer.sh
+bash scripts/get_score.sh

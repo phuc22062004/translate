@@ -19,25 +19,28 @@ This project implements a Vietnamese Abstract Meaning Representation (AMR) parse
 ## 🏗️ Architecture
 
 ```
-VLSP2025/amr/src/
-├── main.py                 # Main inference pipeline
-├── infer.py               # Model inference utilities
-├── data_loader.py         # Data loading and preprocessing
-├── data_processing.py     # Advanced data processing
-├── train_sft.py          # Supervised fine-tuning
-├── train_grpo.py         # GRPO reinforcement learning training
-├── postprocessing.py     # AMR validation and correction
-├── prompt.py             # System prompts and templates
-├── reward.py             # Reward functions for RL training
-├── get_score.py          # Evaluation and scoring
-├── config/               # Training configurations
-│   └── ds_zero2.json     # DeepSpeed ZeRO stage 2 config
-└── scripts/              # Training and inference scripts
-    ├── train_sft.sh      # SFT training script
-    ├── train_grpo.sh     # GRPO training script
-    ├── infer.sh          # Inference script
-    ├── get_score.sh      # Evaluation script
-    └── main.sh           # Main pipeline script
+ViAMR/
+├── viamr/                     # Python package
+│   ├── data_processing.py     # Parse raw AMR files into DataFrames
+│   ├── dataset.py             # Build HuggingFace datasets (SFT/GRPO)
+│   ├── prompts.py             # System prompts
+│   ├── postprocessing.py      # AMR/PENMAN sanitization pipeline
+│   ├── rewards.py             # SMATCH + combined reward for GRPO
+│   ├── inference.py           # QwenReasoner + batch inference CLI
+│   ├── scoring.py             # SMATCH evaluation CLI
+│   ├── split_data.py          # Train/test split CLI
+│   └── training/
+│       ├── _common.py         # Shared model/tokenizer/LoRA helpers
+│       ├── sft.py             # Supervised fine-tuning CLI
+│       └── grpo.py            # GRPO training CLI
+├── config/
+│   └── ds_zero2.json          # DeepSpeed ZeRO stage 2 config
+└── scripts/                   # Bash wrappers for the CLIs
+    ├── train_sft.sh
+    ├── train_grpo.sh
+    ├── infer.sh
+    ├── get_score.sh
+    └── main.sh
 ```
 
 ## 🚀 Setup and Usage
@@ -45,19 +48,29 @@ VLSP2025/amr/src/
 ### 1. Installation
 
 ```bash
-# Navigate to the AMR source directory
-cd VLSP2025/amr/src
-
-# Install dependencies
+# From the repo root
 pip install -r requirements.txt
+```
+
+All CLIs are exposed as modules of the `viamr` package, so run them from the
+repo root (or from anywhere with `PYTHONPATH` pointing at the repo):
+
+```bash
+python -m viamr.training.sft   ...
+python -m viamr.training.grpo  ...
+python -m viamr.inference      ...
+python -m viamr.scoring        ...
+python -m viamr.split_data     ...
 ```
 
 ### 2. Data Preparation
 
 ```bash
-# Process and split training data
-python data_processing.py
-python split_train_test.py
+python -m viamr.split_data \
+    --inputs data/train_amr_1.txt data/train_amr_2.txt \
+    --train_out data/train.txt \
+    --test_out  data/test.txt \
+    --test_ratio 0.15
 ```
 
 ### 3. Training Models
@@ -95,26 +108,28 @@ bash scripts/get_score.sh
 
 ## 📊 Key Components
 
-### AMR Parser ([`infer.py`](src/infer.py))
+### AMR Parser (`viamr/inference.py`)
 
-The main parsing component using [`QwenReasoner`](src/infer.py) class:
+The main parsing component is the `QwenReasoner` class:
 
 ```python
-class QwenReasoner:
-    def inference(self, prompt: str, max_new_tokens: int = 2048, is_extract_amr: bool = False) -> str
+from viamr.inference import QwenReasoner
+
+reasoner = QwenReasoner(model_name="outputs/Qwen-1.7B-SFT-2")
+thinking, amr = reasoner.inference("câu tiếng việt", is_extract_amr=True, is_thinking=True)
 ```
 
-### Post-processing ([`postprocessing.py`](src/postprocessing.py))
+### Post-processing (`viamr/postprocessing.py`)
 
-Advanced AMR validation and correction functions:
+AMR/PENMAN sanitization functions:
 
-* [`remove_single_prop_nodes`](src/postprocessing.py) - Remove single property nodes
-* [`has_duplicate_nodes`](src/postprocessing.py) - Check for duplicate variable names
-* [`dedup_and_tidy`](src/postprocessing.py) - Remove duplicate roles and clean formatting
-* [`balance_parens`](src/postprocessing.py) - Fix parentheses balance
-* [`fix_amr_vars`](src/postprocessing.py) - Correct variable declarations
+* `penman_safe_minimal` — canonical sanitization pipeline
+* `has_duplicate_nodes` — check for duplicate variable names
+* `balance_parens` — fix parentheses balance
+* `fix_amr_vars` — correct variable declarations
+* `normalize_roles_spacing`, `join_concepts_underscores`, `strip_orphan_slashes`
 
-### Prompting System ([`prompt.py`](src/prompt.py))
+### Prompting System (`viamr/prompts.py`)
 
 Structured prompts with Vietnamese-specific instructions:
 
@@ -129,7 +144,7 @@ Nhiệm vụ của bạn là chuyển đổi một câu tiếng Việt đầu v�
 
 ### Training Configuration
 
-* **DeepSpeed**: [`config/ds_zero2.json`](src/config/ds_zero2.json) - ZeRO stage 2 optimization
+* **DeepSpeed**: `config/ds_zero2.json` - ZeRO stage 2 optimization
 * **Model Support**: Qwen2.5, LLaMA3, and other transformer models
 * **RL Training**: GRPO algorithm with custom reward functions
 
@@ -144,18 +159,18 @@ Nhiệm vụ của bạn là chuyển đổi một câu tiếng Việt đầu v�
 
 ### Supervised Fine-Tuning
 
-Uses [`train_sft.py`](src/train_sft.py) to train the model on Vietnamese sentence-AMR pairs with standard cross-entropy loss.
+`viamr/training/sft.py` trains the model on Vietnamese sentence-AMR pairs with standard cross-entropy loss.
 
 ### Reinforcement Learning (GRPO)
 
-Uses [`train_grpo.py`](src/train_grpo.py) with:
-* Custom reward functions from [`reward.py`](src/reward.py)
+`viamr/training/grpo.py` drives GRPO training:
+* Custom reward functions from `viamr/rewards.py`
 * Group Relative Policy Optimization
 * AMR quality-based rewards
 
 ## 🔍 Evaluation
 
-The evaluation system ([`get_score.py`](src/get_score.py)) provides:
+The evaluation CLI (`viamr/scoring.py`) provides:
 * AMR graph accuracy metrics
 * Semantic similarity scoring
 * Structure validation checks
@@ -164,18 +179,15 @@ The evaluation system ([`get_score.py`](src/get_score.py)) provides:
 ## 📝 Usage Example
 
 ```python
-from infer import QwenReasoner
-from postprocessing import process_amr_general
+from viamr.inference import QwenReasoner
+from viamr.postprocessing import penman_safe_minimal
 
-# Initialize the AMR parser
-reasoner = QwenReasoner(model_path="path/to/model")
+reasoner = QwenReasoner(model_name="outputs/Qwen-1.7B-SFT-2")
 
-# Parse Vietnamese sentence to AMR
 sentence = "Tôi đang học tiếng Việt."
-amr_result = reasoner.inference(sentence)
+_, amr_result = reasoner.inference(sentence, is_extract_amr=True)
 
-# Post-process the result
-cleaned_amr = process_amr_general(amr_result)
+cleaned_amr = penman_safe_minimal(amr_result)
 print(cleaned_amr)
 ```
 
