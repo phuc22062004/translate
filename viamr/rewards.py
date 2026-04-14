@@ -4,6 +4,14 @@ from sacrebleu.metrics import BLEU
 _bleu = BLEU(effective_order=True)
 
 
+def clean_pred(text):
+    if text is None:
+        return ""
+    text = html.unescape(text)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+    
 def sentence_bleu(hypothesis: str, reference: str) -> float:
     if not hypothesis.strip() or not reference.strip():
         return 0.0
