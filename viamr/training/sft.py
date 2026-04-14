@@ -21,7 +21,12 @@ def _filter_kwargs(cls, kwargs: dict) -> dict:
 def main(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_dataset = get_data(args.dataset1_path, args.dataset2_path, type="sft")
+    train_dataset = get_data(
+        args.dataset1_path,
+        args.dataset2_path,
+        type="sft",
+        use_amr=bool(args.use_amr),
+    )
     model, tokenizer = build_model_and_tokenizer(args.model_name, device)
     peft_config = build_lora_config(args)
 
@@ -74,6 +79,8 @@ def parse_args() -> argparse.Namespace:
     add_common_args(parser)
     parser.add_argument("--max_input_length", type=int, default=1024)
     parser.add_argument("--eval_steps", type=int, default=500)
+    parser.add_argument("--use_amr", type=int, default=1,
+                        help="1 = include AMR in prompt (default), 0 = Vietnamese-only baseline")
     return parser.parse_args()
 
 

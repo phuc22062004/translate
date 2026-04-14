@@ -14,11 +14,28 @@ SYSTEM_PROMPT = (
 )
 
 
+SYSTEM_PROMPT_NO_AMR = (
+    "You are a professional Vietnamese-to-English translator. You will receive a "
+    "Vietnamese sentence and must produce a fluent, faithful English translation. "
+    "Preserve the meaning, tense, and relations (who did what to whom, when, where, "
+    "why) without adding content that is not supported by the sentence.\n\n"
+    "Output only the English translation — no Vietnamese, no explanations, no tags."
+)
+
+
 def build_user_prompt(amr: str, sentence: str) -> str:
     return (
         "Translate the following Vietnamese sentence to English, using the AMR as "
         "semantic guidance.\n"
         f"AMR: {amr}\n"
+        f"Vietnamese: {sentence}\n"
+        "English:"
+    )
+
+
+def build_user_prompt_no_amr(sentence: str) -> str:
+    return (
+        "Translate the following Vietnamese sentence to English.\n"
         f"Vietnamese: {sentence}\n"
         "English:"
     )

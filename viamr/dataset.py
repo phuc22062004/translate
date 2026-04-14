@@ -4,7 +4,12 @@ import json
 import pandas as pd
 from datasets import Dataset
 
-from .prompts import SYSTEM_PROMPT, build_user_prompt
+from .prompts import (
+    SYSTEM_PROMPT,
+    SYSTEM_PROMPT_NO_AMR,
+    build_user_prompt,
+    build_user_prompt_no_amr,
+)
 
 
 def _read_jsonl(path: str) -> pd.DataFrame:
@@ -22,25 +27,35 @@ def _normalize_vi(text: str) -> str:
     return text.replace("_", " ").strip()
 
 
-def get_data(train_path1: str, train_path2: str | None = None, type: str = "sft") -> Dataset:
+def get_data(
+    train_path1: str,
+    train_path2: str | None = None,
+    type: str = "sft",
+    use_amr: bool = True,
+) -> Dataset:
 
     df = _read_jsonl(train_path1)
     if train_path2:
         df = pd.concat([df, _read_jsonl(train_path2)], ignore_index=True)
 
+    system_prompt = SYSTEM_PROMPT if use_amr else SYSTEM_PROMPT_NO_AMR
+
     records = []
     max_in, max_out = 0, 0
     for _, row in df.iterrows():
         vi_sentence = _normalize_vi(row["vi"])
-        amr = row["input"].strip()
         target = row["output"].strip()
-        user_prompt = build_user_prompt(amr, vi_sentence)
+        if use_amr:
+            amr = row["input"].strip()
+            user_prompt = build_user_prompt(amr, vi_sentence)
+        else:
+            user_prompt = build_user_prompt_no_amr(vi_sentence)
 
         max_in = max(max_in, len(user_prompt.split()))
         max_out = max(max_out, len(target.split()))
 
         prompt = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         if type == "grpo":
